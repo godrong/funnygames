@@ -1,0 +1,13 @@
+{
+  "name": "funnygames",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "games/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace @funnygames/blind-soup && node scripts/build.mjs",
+    "test": "npm test --workspace @funnygames/blind-soup",
+    "dev:blind-soup": "npm run dev --workspace @funnygames/blind-soup"
+  }
+}

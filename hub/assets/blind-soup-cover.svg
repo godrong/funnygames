@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760" role="img" aria-labelledby="title desc">
+  <title id="title">盲汤线索关系画布</title>
+  <desc id="desc">烧杯、值班员、实验室、午夜和停电五个线索节点组成的推理关系图</desc>
+  <rect width="1200" height="760" fill="#dedacf"/>
+  <rect x="46" y="42" width="1108" height="676" fill="#f6f2e9" stroke="#bbb7ad" stroke-width="2"/>
+  <g stroke="#d3cfc5" stroke-width="1" stroke-dasharray="3 8">
+    <path d="M80 120h1040M80 200h1040M80 280h1040M80 360h1040M80 440h1040M80 520h1040M80 600h1040"/>
+    <path d="M160 78v604M280 78v604M400 78v604M520 78v604M640 78v604M760 78v604M880 78v604M1000 78v604"/>
+  </g>
+  <path d="M260 195 590 366 890 200M590 366 270 565M590 366 900 560" fill="none" stroke="#969b94" stroke-width="2" stroke-dasharray="8 8"/>
+  <g font-family="Arial, sans-serif">
+    <g transform="translate(165 140)">
+      <rect width="190" height="112" rx="6" fill="#fffdfa" stroke="#bdb9af" stroke-width="2"/>
+      <rect width="190" height="6" rx="3" fill="#db6b53"/>
+      <path d="M38 31v38c0 12 9 20 22 20s22-8 22-20V31M31 31h58M42 61h36" fill="none" stroke="#db6b53" stroke-width="4"/>
+      <text x="102" y="54" font-size="22" font-weight="700" fill="#202522">烧杯</text><text x="102" y="78" font-size="13" fill="#8a8f88">物件</text>
+    </g>
+    <g transform="translate(790 145)">
+      <rect width="205" height="112" rx="6" fill="#fffdfa" stroke="#bdb9af" stroke-width="2"/>
+      <rect width="205" height="6" rx="3" fill="#c59138"/>
+      <circle cx="52" cy="48" r="15" fill="none" stroke="#c59138" stroke-width="4"/><path d="M27 88c4-19 13-28 25-28s21 9 25 28" fill="none" stroke="#c59138" stroke-width="4"/>
+      <text x="94" y="54" font-size="22" font-weight="700" fill="#202522">值班员</text><text x="94" y="78" font-size="13" fill="#8a8f88">人物</text>
+    </g>
+    <g transform="translate(480 310)">
+      <rect width="220" height="120" rx="6" fill="#fffdfa" stroke="#bdb9af" stroke-width="2"/>
+      <rect width="220" height="6" rx="3" fill="#2f817c"/>
+      <path d="M41 32v30L27 91h52L65 62V32M35 32h36M36 72h34" fill="none" stroke="#2f817c" stroke-width="4"/>
+      <text x="98" y="59" font-size="22" font-weight="700" fill="#202522">实验室</text><text x="98" y="83" font-size="13" fill="#8a8f88">场景</text>
+    </g>
+    <g transform="translate(170 510)">
+      <rect width="200" height="108" rx="6" fill="#fffdfa" stroke="#bdb9af" stroke-width="2"/>
+      <rect width="200" height="6" rx="3" fill="#557cac"/>
+      <path d="M63 28a30 30 0 1 0 13 55 32 32 0 0 1-13-55Z" fill="none" stroke="#557cac" stroke-width="4"/>
+      <text x="105" y="52" font-size="22" font-weight="700" fill="#202522">午夜</text><text x="105" y="76" font-size="13" fill="#8a8f88">时间</text>
+    </g>
+    <g transform="translate(795 505)">
+      <rect width="210" height="108" rx="6" fill="#fffdfa" stroke="#bdb9af" stroke-width="2"/>
+      <rect width="210" height="6" rx="3" fill="#8169a1"/>
+      <path d="m57 25-23 37h19l-8 27 32-43H58l9-21Z" fill="none" stroke="#8169a1" stroke-width="4" stroke-linejoin="round"/>
+      <text x="105" y="52" font-size="22" font-weight="700" fill="#202522">停电</text><text x="105" y="76" font-size="13" fill="#8a8f88">异常</text>
+    </g>
+    <text x="76" y="101" fill="#2f817c" font-size="13" font-family="monospace">BLIND SOUP / STORY BOARD</text>
+    <text x="980" y="685" fill="#8a8f88" font-size="13" font-family="monospace">5 / 8 CLUES</text>
+  </g>
+</svg>
