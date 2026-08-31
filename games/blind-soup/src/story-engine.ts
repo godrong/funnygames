@@ -25,6 +25,15 @@ export type Story = {
   prompt: string
 }
 
+export const MAX_QUESTIONS = 8
+
+export type JudgeResult = {
+  verdict: '是' | '否' | '无关' | '猜对了'
+  detail: string
+  matchedFacts: number[]
+  solved: boolean
+}
+
 const storySchema = {
   type: 'object',
   required: ['title', 'surface', 'truth', 'keyFacts'],
@@ -96,19 +105,90 @@ function isStory(value: unknown): value is Omit<Story, 'prompt'> {
     && story.keyFacts.every((fact) => typeof fact === 'string')
 }
 
-export function judgeQuestion(question: string, story: Story, supernatural: boolean) {
+const normalize = (value: string) => value.replace(/[\s，。！？、“”‘’：；,.!?;:'"()（）]/g, '')
+
+const ignoredBigrams = new Set([
+  '是不是',
+  '是否',
+  '有关',
+  '因为',
+  '所以',
+  '什么',
+  '怎么',
+  '这个',
+  '那个',
+  '真的',
+  '可以',
+].flatMap((word) => Array.from({ length: Math.max(0, word.length - 1) }, (_, index) => word.slice(index, index + 2))))
+
+function bigrams(value: string) {
+  const text = normalize(value)
+  return new Set(
+    Array.from({ length: Math.max(0, text.length - 1) }, (_, index) => text.slice(index, index + 2))
+      .filter((gram) => !ignoredBigrams.has(gram)),
+  )
+}
+
+const topicPatterns = [
+  /时间|提前|之前|死亡|延迟/,
+  /反射|镜|影子|视觉|倒影/,
+  /机关|触发|遥控|自动|定时/,
+  /录音|广播|声音|听见|电话/,
+  /温度|冷|热|冰|融化/,
+  /身份|假扮|伪装|换装|认错/,
+  /灯|火|停电|照明|亮/,
+  /药|毒|过敏|病|治疗/,
+  /钥匙|门|锁|密室|出入/,
+]
+
+export function findMatchingFacts(question: string, story: Story) {
+  const questionGrams = bigrams(question)
+  const topicMatches = topicPatterns.filter((pattern) => pattern.test(question))
+
+  return story.keyFacts.flatMap((fact, index) => {
+    const factGrams = bigrams(fact)
+    const overlap = [...questionGrams].filter((gram) => factGrams.has(gram)).length
+    const sharesTopic = topicMatches.some((pattern) => pattern.test(fact))
+    return overlap >= 3 || sharesTopic ? [index] : []
+  })
+}
+
+export function requiredFactCount(story: Story) {
+  return Math.max(2, Math.ceil(story.keyFacts.length * 0.75))
+}
+
+export function judgeQuestion(
+  question: string,
+  story: Story,
+  supernatural: boolean,
+  knownFacts: number[] = [],
+): JudgeResult {
   const normalized = question.trim()
-  if (!normalized) return { verdict: '无关', detail: '先提出一个可以用“是或否”回答的问题。' }
+  if (!normalized) return { verdict: '无关', detail: '先提出一个可以用“是或否”回答的问题。', matchedFacts: [], solved: false }
+
+  const matchedFacts = findMatchingFacts(normalized, story)
+  const coveredFacts = new Set([...knownFacts, ...matchedFacts])
+  const explicitGuess = /我猜|真相|答案|所以|其实|也就是说|是不是因为|完整还原/.test(normalized)
+  const solved = coveredFacts.size >= requiredFactCount(story) || (explicitGuess && matchedFacts.length >= 2)
+
+  if (solved) {
+    return {
+      verdict: '猜对了',
+      detail: '关键因果已经闭合。你还原出了这碗汤的核心真相。',
+      matchedFacts,
+      solved: true,
+    }
+  }
   if (/鬼|幽灵|超自然|诅咒/.test(normalized)) {
     return supernatural
-      ? { verdict: '是', detail: '超自然因素确实参与了事件。' }
-      : { verdict: '否', detail: '一切都有现实层面的解释。' }
+      ? { verdict: '是', detail: '超自然因素确实参与了事件。', matchedFacts, solved: false }
+      : { verdict: '否', detail: '一切都有现实层面的解释。', matchedFacts, solved: false }
   }
-  if (/时间|提前|之前|死亡/.test(normalized)) return { verdict: '是', detail: '死亡时间是关键突破口。' }
-  if (/第四个人|反射|镜|影子/.test(normalized)) return { verdict: '是', detail: '你正在接近视觉误导的核心。' }
-  if (/凶器|杀死|杀害/.test(normalized)) return { verdict: '否', detail: '你注意到的物品用途和表面看起来不同。' }
-  if (story.keyFacts.some((fact) => normalized.split('').filter(Boolean).some((char) => fact.includes(char)) && normalized.length > 4)) {
-    return { verdict: '是', detail: '这个方向与真相有关。' }
+  if (matchedFacts.length > 0) {
+    return { verdict: '是', detail: '这个方向与真相有关，继续追问其中的因果。', matchedFacts, solved: false }
   }
-  return { verdict: '无关', detail: '这个问题不能帮助还原关键因果。' }
+  if (/凶器|杀死|杀害/.test(normalized)) {
+    return { verdict: '否', detail: '你注意到的物品用途和表面看起来不同。', matchedFacts: [], solved: false }
+  }
+  return { verdict: '无关', detail: '这个问题不能帮助还原关键因果。', matchedFacts: [], solved: false }
 }
