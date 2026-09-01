@@ -61,6 +61,8 @@ export function simulateBenchmark(story: Story, model: ModelOption): BenchmarkRe
   const efficiency = Math.max(45, 100 - turns * 3)
   const score = Math.round(coverage * .55 + validQuestionRate * .25 + efficiency * .2)
   const rank = score >= 90 ? '侧写大师' : score >= 82 ? '逻辑侦探' : score >= 74 ? '合格推理者' : '线索学徒'
+  const questions = story.suggestedQuestions?.slice(0, 4)
+    ?? story.keyFacts.slice(0, 4).map((fact) => `这与“${fact}”有关吗？`)
 
   return {
     score,
@@ -69,13 +71,8 @@ export function simulateBenchmark(story: Story, model: ModelOption): BenchmarkRe
     turns,
     rank,
     source: 'simulation',
-    finalAnswer: `事件的死亡时间被人为误导，房外物件用于触发机关；所谓“第四个人”来自反射造成的视觉错位。${story.keyFacts[3] ?? ''}`,
-    trace: [
-      { round: 1, question: '异常发生的时间比表面看起来更早吗？', verdict: '是' },
-      { round: 2, question: '门外的物品直接造成了死亡吗？', verdict: '否' },
-      { round: 3, question: '所有目击者看到的是同一个对象吗？', verdict: '是' },
-      { round: 4, question: '第四个人是真实进入现场的人吗？', verdict: '否' },
-    ],
+    finalAnswer: story.truth,
+    trace: questions.map((question, index) => ({ round: index + 1, question, verdict: '是' })),
   }
 }
 

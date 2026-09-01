@@ -5,7 +5,7 @@ import type { Story } from './story-engine'
 const story: Story = {
   title: '测试汤',
   surface: '一个密室谜题。',
-  truth: '镜子制造了第四个人。',
+  truth: '登记中的失踪者一直藏在建筑内部。',
   keyFacts: ['时间错误', '物品不是凶器', '视觉误导', '停电是计划的一部分'],
   prompt: '',
 }
@@ -17,5 +17,7 @@ describe('model benchmark', () => {
     expect(first).toEqual(second)
     expect(first.score).toBeGreaterThanOrEqual(0)
     expect(first.score).toBeLessThanOrEqual(100)
+    expect(first.finalAnswer).toBe(story.truth)
+    expect(JSON.stringify(first)).not.toContain('第四个人')
   })
 })

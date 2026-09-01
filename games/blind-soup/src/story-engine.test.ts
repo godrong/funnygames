@@ -139,6 +139,7 @@ describe('story engine', () => {
       expect(story.surface).not.toContain('发生密室')
       expect(story.truth).toContain('登记中减少的是失踪者本人')
       expect(story.truth).not.toContain('或本人')
+      expect(story.truth).not.toContain('密室则是')
       expect(['认错的失踪者', '主动消失的人']).toContain(story.title)
       for (const question of story.suggestedQuestions ?? []) {
         expect(judgeQuestion(question, story, false).verdict).not.toBe('无关')

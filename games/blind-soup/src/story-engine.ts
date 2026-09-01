@@ -168,14 +168,14 @@ const archetypes: Array<(context: StoryContext, settings: StorySettings) => Stor
   (c) => ({
     title: '主动消失的人',
     surface: `${c.time}，${c.person}在${c.place}留下${c.object}后失踪。搜查期间，${c.anomalyEvent}，大家发现出口旁的${c.extra}从未被拿走。三天后警方宣布：没有绑架，失踪者也从未离开。怎么回事？`,
-    truth: `${c.person}发现内部人员在追踪自己，于是主动藏进停用的检修区收集证据。${c.object}被留在显眼处制造仓促离开的假象，${c.extra}仍在出口证明他没有正常离开；${c.anomaly}则是他从夹层接入设备、向警方发送证据时产生的。`,
-    keyFacts: [`${c.person}是主动躲藏`, `${c.object}用于制造已经离开的假象`, `${c.extra}证明正常出口没有被使用`, `${c.anomaly}来自失踪者传送证据`],
-    suggestedQuestions: [`${c.person}是主动藏起来的吗？`, `${c.object}是故意留下的假线索吗？`, `${c.anomaly}与发送证据有关吗？`],
+    truth: `${c.person}发现内部人员在追踪自己，于是主动藏进停用的检修区收集证据。${c.object}被留在显眼处制造仓促离开的假象，${c.extra}仍在出口证明他没有正常离开；搜查期间的异常则来自他在夹层接入设备、向警方发送证据的过程。`,
+    keyFacts: [`${c.person}是主动躲藏`, `${c.object}用于制造已经离开的假象`, `${c.extra}证明正常出口没有被使用`, '搜查期间的异常来自失踪者传送证据'],
+    suggestedQuestions: [`${c.person}是主动藏起来的吗？`, `${c.object}是故意留下的假线索吗？`, '搜查期间的异常与发送证据有关吗？'],
     judgeRules: [
       rule(new RegExp(`${escapeRegExp(c.person)}.*(主动|躲藏|藏起来)|(主动|躲藏).*${escapeRegExp(c.person)}`), '是', `${c.person}的消失是自己计划的。`, 0),
       rule(new RegExp(`${c.objectPattern}.*(假线索|假象|故意留下)|(假线索|假象).*${c.objectPattern}`), '是', `${c.object}被故意留作误导。`, 1),
       rule(new RegExp(`${c.extraPattern}.*(出口|没用|没有拿)|(出口|离开).*${c.extraPattern}`), '是', `${c.extra}说明正常出口没有被使用。`, 2),
-      rule(new RegExp(`${c.anomalyPattern}.*(证据|发送|传送)|(证据|发送).*${c.anomalyPattern}`), '是', `${c.anomaly}与秘密传送证据有关。`, 3),
+      rule(/异常.*(证据|发送|传送)|(证据|发送|传送).*异常/, '是', '搜查期间的异常与秘密传送证据有关。', 3),
       rule(/绑架|被人抓走|遭到杀害|已经死亡/, '否', `${c.person}没有被绑架或杀害。`),
       rule(/已经离开|逃到外面|正常出门/, '否', `${c.person}一直藏在建筑内部。`),
       ...unrelatedRules(false),
