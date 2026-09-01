@@ -123,6 +123,47 @@ describe('story engine', () => {
     else expect(story.surface).not.toContain('额外条件')
   })
 
+  it('turns a missing-person brief into an actual story constraint', () => {
+    const constrainedElements: GameElement[] = [
+      { id: 'locked', label: '密室', kind: 'anomaly', icon: 'lock' },
+      { id: 'night', label: '午夜', kind: 'time', icon: 'moon' },
+      { id: 'missing', label: '失踪者', kind: 'person', icon: 'person' },
+    ]
+
+    for (let variant = 0; variant < 6; variant += 1) {
+      const story = buildStory(constrainedElements, settings(variant, { brief: '图书馆8个人少了一个人' }))
+      expect(story.surface).toContain('图书馆')
+      expect(story.surface).toContain('8个人')
+      expect(story.surface).toContain('少了一个')
+      expect(story.surface).not.toContain('第四个人')
+      expect(story.surface).not.toContain('发生密室')
+      expect(story.truth).toContain('登记人数减少的那一个正是失踪者')
+      expect(['认错的失踪者', '主动消失的人']).toContain(story.title)
+      for (const question of story.suggestedQuestions ?? []) {
+        expect(judgeQuestion(question, story, false).verdict).not.toBe('无关')
+      }
+    }
+  })
+
+  it('prefers a selected place over a place mentioned in the brief', () => {
+    const story = buildStory(elements, settings(0, { brief: '图书馆8个人少了一个人' }))
+    expect(story.surface).toContain('实验室')
+  })
+
+  it('renders anomaly elements as events instead of malformed verbs', () => {
+    const lockedElements: GameElement[] = [
+      { id: 'locked', label: '密室', kind: 'anomaly', icon: 'lock' },
+      { id: 'person', label: '失踪者', kind: 'person', icon: 'person' },
+      { id: 'time', label: '午夜', kind: 'time', icon: 'moon' },
+    ]
+
+    for (let variant = 0; variant < 8; variant += 1) {
+      const story = buildStory(lockedElements, settings(variant))
+      expect(story.surface).not.toMatch(/发生密室|随后密室|密室后|引发密室/)
+      expect(story.surface).toContain('房门突然从里面反锁')
+    }
+  })
+
   it('uses tone and difficulty as story output controls', () => {
     const plain = buildStory(elements, settings(2, { tone: '悬疑', difficulty: 3 }))
     const absurd = buildStory(elements, settings(2, { tone: '荒诞', difficulty: 5 }))
