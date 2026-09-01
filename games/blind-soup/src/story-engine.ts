@@ -23,6 +23,15 @@ export type Story = {
   truth: string
   keyFacts: string[]
   prompt: string
+  judgeRules?: JudgeRule[]
+  suggestedQuestions?: string[]
+}
+
+export type JudgeRule = {
+  pattern: RegExp
+  verdict: '是' | '否' | '无关'
+  detail: string
+  fact?: number
 }
 
 export const MAX_QUESTIONS = 8
@@ -50,6 +59,8 @@ const titles = ['零点后的第四个人', '没有倒下的影子', '最后一�
 const pick = (elements: GameElement[], kind: ElementKind, fallback: string) =>
   elements.find((item) => item.kind === kind)?.label ?? fallback
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+
 export function buildStory(elements: GameElement[], settings: StorySettings): Story {
   const object = pick(elements, 'object', '一只停摆的钟')
   const person = pick(elements, 'person', '夜班保安')
@@ -62,6 +73,9 @@ export function buildStory(elements: GameElement[], settings: StorySettings): St
     : '看似超自然的现象，其实来自应急电源与镜面反射的时间差。'
   const briefLine = settings.brief.trim() ? `创作者给出的限制是：“${settings.brief.trim()}”。` : ''
   const title = titles[settings.variant % titles.length]
+  const objectName = escapeRegExp(object)
+  const extraName = escapeRegExp(extra)
+  const anomalyName = escapeRegExp(anomaly)
 
   return {
     title,
@@ -72,6 +86,18 @@ export function buildStory(elements: GameElement[], settings: StorySettings): St
       `${extra}不是真正的凶器`,
       '“第四个人”是视觉误导',
       `${anomaly}是计划的一部分`,
+    ],
+    suggestedQuestions: ['死亡时间被人误导了吗？', `${extra}是真正的凶器吗？`, '第四个人真实存在吗？'],
+    judgeRules: [
+      { pattern: new RegExp(`死亡时间|时间.*误导|${objectName}.*动过|${objectName}.*手脚`), verdict: '是', fact: 0, detail: '表面上的死亡时间并不可靠。' },
+      { pattern: new RegExp(`${extraName}.*不是.*凶器|${extraName}.*并非.*凶器|${extraName}.*机关|机关.*${extraName}`), verdict: '是', fact: 1, detail: `${extra}的真正用途不是直接伤人。` },
+      { pattern: /反射|镜面|倒影|视觉误导|延迟影像/, verdict: '是', fact: 2, detail: '“第四个人”与视觉误导有关。' },
+      { pattern: new RegExp(`${anomalyName}.*人为|${anomalyName}.*计划|人为.*${anomalyName}|计划.*${anomalyName}`), verdict: '是', fact: 3, detail: `${anomaly}并不是偶然发生的。` },
+      { pattern: new RegExp(`${extraName}.*凶器|${extraName}.*杀|用.*${extraName}.*杀`), verdict: '否', detail: `${extra}没有直接造成死亡。` },
+      { pattern: /第四个人.*真实|真实.*第四个人|第四个人.*进入|有人.*偷偷进入/, verdict: '否', detail: '没有真实的第四个人进入现场。' },
+      { pattern: new RegExp(`${anomalyName}.*意外|偶然.*${anomalyName}`), verdict: '否', detail: `${anomaly}不是单纯的意外。` },
+      { pattern: /外星|早餐|彩票|宠物/, verdict: '无关', detail: '这个方向与案件的关键因果无关。' },
+      { pattern: /鬼|幽灵|超自然|诅咒/, verdict: settings.supernatural ? '是' : '否', detail: settings.supernatural ? '超自然因素确实参与了事件。' : '一切都有现实层面的解释。' },
     ],
     prompt: `请生成一道${settings.tone}风格、难度 ${settings.difficulty}/5 的海龟汤。必须使用元素：${elements.map((item) => item.label).join('、')}。${settings.supernatural ? '允许真实超自然设定。' : '所有异常必须有现实解释。'}额外限制：${settings.brief || '无'}。输出 title、surface、truth、keyFacts，并保证汤面不泄露汤底。`,
   }
@@ -165,6 +191,35 @@ export function judgeQuestion(
 ): JudgeResult {
   const normalized = question.trim()
   if (!normalized) return { verdict: '无关', detail: '先提出一个可以用“是或否”回答的问题。', matchedFacts: [], solved: false }
+
+  if (story.judgeRules?.length) {
+    const matchedRules = story.judgeRules.filter((rule) => rule.pattern.test(normalized))
+    const primaryRule = matchedRules[0]
+    if (primaryRule?.verdict === '否') {
+      return { verdict: '否', detail: primaryRule.detail, matchedFacts: [], solved: false }
+    }
+    if (primaryRule?.verdict === '无关') {
+      return { verdict: '无关', detail: primaryRule.detail, matchedFacts: [], solved: false }
+    }
+
+    const positiveRules = matchedRules.filter((rule) => rule.verdict === '是')
+    if (positiveRules.length > 0) {
+      const matchedFacts = [...new Set(positiveRules.flatMap((rule) => rule.fact === undefined ? [] : [rule.fact]))]
+      const coveredFacts = new Set([...knownFacts, ...matchedFacts])
+      const solved = coveredFacts.size >= requiredFactCount(story)
+      if (solved) {
+        return { verdict: '猜对了', detail: '关键因果已经闭合。你还原出了这碗汤的核心真相。', matchedFacts, solved: true }
+      }
+      return { verdict: '是', detail: positiveRules[0].detail, matchedFacts, solved: false }
+    }
+
+    return {
+      verdict: '无关',
+      detail: '这个方向与案件的关键因果无关。',
+      matchedFacts: [],
+      solved: false,
+    }
+  }
 
   const matchedFacts = findMatchingFacts(normalized, story)
   const coveredFacts = new Set([...knownFacts, ...matchedFacts])

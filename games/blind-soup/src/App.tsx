@@ -49,7 +49,7 @@ import {
   Zap,
   type LucideIcon,
 } from 'lucide-react'
-import { useMemo, useRef, useState, type DragEvent, type PointerEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type DragEvent, type PointerEvent } from 'react'
 import Archive from './Archive'
 import Benchmark from './Benchmark'
 import { curatedStories, type CuratedStory } from './curated-stories'
@@ -144,6 +144,7 @@ function App() {
   const [difficulty, setDifficulty] = useState(3)
   const [supernatural, setSupernatural] = useState(false)
   const [brief, setBrief] = useState('')
+  const [draftStory, setDraftStory] = useState<Story | null>(null)
   const [story, setStory] = useState<Story | null>(null)
   const [variant, setVariant] = useState(0)
   const [generating, setGenerating] = useState(false)
@@ -152,10 +153,15 @@ function App() {
   const [revealed, setRevealed] = useState(false)
   const [chats, setChats] = useState<ChatItem[]>([])
   const [coveredFacts, setCoveredFacts] = useState<number[]>([])
-  const [outcome, setOutcome] = useState<'won' | 'lost' | null>(null)
+  const [outcome, setOutcome] = useState<'won' | 'lost' | 'revealed' | null>(null)
   const [reactionChoice, setReactionChoice] = useState<number | null>(null)
   const [currentCuratedId, setCurrentCuratedId] = useState<string | null>(null)
+  const [gameElements, setGameElements] = useState<GameElement[]>([])
+  const [gameDifficulty, setGameDifficulty] = useState(3)
+  const [gameSupernatural, setGameSupernatural] = useState(false)
+  const [benchmarkReturnView, setBenchmarkReturnView] = useState<'studio' | 'game'>('game')
   const boardRef = useRef<HTMLDivElement>(null)
+  const messagesRef = useRef<HTMLDivElement>(null)
 
   const turnCount = chats.filter((item) => item.from === 'player').length
   const turnsLeft = Math.max(0, MAX_QUESTIONS - turnCount)
@@ -163,6 +169,10 @@ function App() {
   const caseNumber = currentCuratedId
     ? curatedStories.findIndex((item) => item.id === currentCuratedId) + 1
     : variant + 1
+
+  useEffect(() => {
+    if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight
+  }, [chats])
 
   const filteredElements = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -222,14 +232,14 @@ function App() {
       return
     }
     setGenerating(true)
-    const nextVariant = story ? variant + 1 : variant
+    const nextVariant = draftStory ? variant + 1 : variant
     await new Promise((resolve) => window.setTimeout(resolve, 650))
     try {
       const nextStory = await requestStory(selected, { tone, difficulty, supernatural, brief, variant: nextVariant })
       setVariant(nextVariant)
-      setStory(nextStory)
+      setDraftStory(nextStory)
     } catch {
-      setStory(buildStory(selected, { tone, difficulty, supernatural, brief, variant: nextVariant }))
+      setDraftStory(buildStory(selected, { tone, difficulty, supernatural, brief, variant: nextVariant }))
       setToast('模型未响应，已使用本地引擎')
       window.setTimeout(() => setToast(''), 2200)
     } finally {
@@ -240,13 +250,15 @@ function App() {
   const beginGame = (targetStory: Story, curated?: CuratedStory) => {
     setStory(targetStory)
     setCurrentCuratedId(curated?.id ?? null)
+    setGameDifficulty(curated?.difficulty ?? difficulty)
+    setGameSupernatural(curated?.supernatural ?? supernatural)
     if (curated) {
-      setDifficulty(curated.difficulty)
-      setSupernatural(curated.supernatural)
-      setSelected(curated.elementIds.flatMap((id, index) => {
+      setGameElements(curated.elementIds.flatMap((id, index) => {
         const element = elementLibrary.find((item) => item.id === id)
         return element ? [{ ...element, ...starterPositions[index % starterPositions.length] }] : []
       }))
+    } else {
+      setGameElements(selected)
     }
     setChats([{ from: 'host', text: '汤面已经封存。请提出只能用“是 / 否 / 无关”回答的问题。' }])
     setQuestion('')
@@ -258,7 +270,7 @@ function App() {
   }
 
   const startGame = () => {
-    if (story) beginGame(story)
+    if (draftStory) beginGame(draftStory)
   }
 
   const startCuratedGame = (curated: CuratedStory) => beginGame(curated, curated)
@@ -266,7 +278,7 @@ function App() {
   const ask = () => {
     if (!story || !question.trim() || outcome || turnCount >= MAX_QUESTIONS) return
     const playerText = question.trim()
-    const response = judgeQuestion(playerText, story, supernatural, coveredFacts)
+    const response = judgeQuestion(playerText, story, gameSupernatural, coveredFacts)
     const nextCoveredFacts = [...new Set([...coveredFacts, ...response.matchedFacts])]
     const nextTurn = turnCount + 1
     setCoveredFacts(nextCoveredFacts)
@@ -292,8 +304,8 @@ function App() {
   }
 
   const copyPrompt = async () => {
-    if (!story) return
-    await navigator.clipboard.writeText(story.prompt)
+    if (!draftStory) return
+    await navigator.clipboard.writeText(draftStory.prompt)
     setToast('提示词已复制')
     window.setTimeout(() => setToast(''), 1800)
   }
@@ -303,7 +315,7 @@ function App() {
   }
 
   if (view === 'benchmark' && story) {
-    return <Benchmark story={story} onBack={() => setView('game')} onStudio={() => setView('studio')} />
+    return <Benchmark story={story} onBack={() => setView(benchmarkReturnView)} onStudio={() => setView('studio')} />
   }
 
   if (view === 'game' && story) {
@@ -327,17 +339,17 @@ function App() {
             <h1>{story.title}</h1>
             <p className="surface-text">{story.surface}</p>
             <div className="case-tags">
-              {selected.slice(0, 5).map((item) => <span key={item.id}>{item.label}</span>)}
+              {gameElements.slice(0, 5).map((item) => <span key={item.id}>{item.label}</span>)}
             </div>
             <div className="game-stats">
               <div><strong>{turnsLeft}/{MAX_QUESTIONS}</strong><span>剩余提问</span></div>
-              <div><strong>{difficulty}/5</strong><span>难度</span></div>
+              <div><strong>{gameDifficulty}/5</strong><span>难度</span></div>
               <div><strong>{coverage}%</strong><span>还原度</span></div>
             </div>
-            <button className="reveal-button" onClick={() => setRevealed((value) => !value)}>
-              <Eye size={18} /> {revealed ? '收起汤底' : '揭晓汤底'}
+            <button className="reveal-button" onClick={() => { setRevealed(true); setOutcome('revealed') }} disabled={Boolean(outcome)}>
+              <Eye size={18} /> 放弃并揭晓汤底
             </button>
-            <button className="benchmark-entry" onClick={() => setView('benchmark')}>
+            <button className="benchmark-entry" onClick={() => { setBenchmarkReturnView('game'); setView('benchmark') }}>
               <BrainCircuit size={18} /> 让模型来破案
             </button>
             {revealed && <div className="truth-panel"><span>汤底</span><p>{story.truth}</p></div>}
@@ -348,7 +360,7 @@ function App() {
               <div><Bot size={20} /><span>AI 主持人</span></div>
               <span>只回答 是 / 否 / 无关</span>
             </div>
-            <div className="messages" aria-live="polite">
+            <div className="messages" ref={messagesRef} aria-live="polite">
               {chats.map((item, index) => (
                 <div className={`message-row ${item.from}`} key={`${item.text}-${index}`}>
                   <div className="avatar">{item.from === 'host' ? <Bot size={17} /> : <UserRound size={17} />}</div>
@@ -360,7 +372,7 @@ function App() {
               ))}
             </div>
             <div className="quick-questions">
-              {['这和时间有关吗？', '现场物品被动过吗？', '有人隐瞒了身份吗？'].map((text) => (
+              {(story.suggestedQuestions ?? ['这和时间有关吗？', '现场物品被动过吗？', '有人隐瞒了身份吗？']).map((text) => (
                 <button key={text} onClick={() => setQuestion(text)} disabled={Boolean(outcome)}>{text}</button>
               ))}
             </div>
@@ -384,9 +396,9 @@ function App() {
             <section className="settlement-dialog" role="dialog" aria-modal="true" aria-labelledby="settlement-title">
               <div className={`settlement-status ${outcome}`}>
                 {outcome === 'won' ? <BadgeCheck size={25} /> : <Clock3 size={25} />}
-                <span>{outcome === 'won' ? '推理成功' : '提问用尽'}</span>
+                <span>{outcome === 'won' ? '推理成功' : outcome === 'lost' ? '提问用尽' : '主动揭晓'}</span>
               </div>
-              <h2 id="settlement-title">{outcome === 'won' ? `${turnCount} 次提问还原真相` : '这碗汤揭晓了'}</h2>
+              <h2 id="settlement-title">{outcome === 'won' ? `${turnCount} 次提问还原真相` : outcome === 'lost' ? '这碗汤揭晓了' : '本局已放弃'}</h2>
               <div className="settlement-score">
                 <div><strong>{coverage}%</strong><span>关键事实覆盖</span></div>
                 <div><strong>{turnCount}/{MAX_QUESTIONS}</strong><span>使用轮次</span></div>
@@ -424,7 +436,7 @@ function App() {
   }
 
   return (
-    <main className="app-shell">
+    <main className="app-shell studio-shell">
       <header className="topbar">
         <button className="brand" onClick={() => setView('studio')} aria-label="盲汤创作桌">
           <span className="brand-mark"><Droplets size={20} /></span>
@@ -549,17 +561,17 @@ function App() {
 
           <button className="generate-button" onClick={generate} disabled={generating}>
             {generating ? <RefreshCw className="spin" size={19} /> : <Sparkles size={19} />}
-            {generating ? '正在编织因果…' : story ? '换一个汤底' : '生成海龟汤'}
+            {generating ? '正在编织因果…' : draftStory ? '换一个汤底' : '生成海龟汤'}
           </button>
 
-          {story ? (
+          {draftStory ? (
             <article className="story-result" aria-live="polite">
               <div className="result-head"><span>已生成</span><button title="复制模型提示词" aria-label="复制模型提示词" onClick={copyPrompt}><Copy size={16} /></button></div>
-              <h2>{story.title}</h2>
-              <p>{story.surface}</p>
+              <h2>{draftStory.title}</h2>
+              <p>{draftStory.surface}</p>
               <div className="result-buttons">
                 <button className="play-button" onClick={startGame}><Play size={17} fill="currentColor" /> 人类试玩</button>
-                <button className="benchmark-button" onClick={() => setView('benchmark')}><BrainCircuit size={17} /> 模型智测</button>
+                <button className="benchmark-button" onClick={() => { setStory(draftStory); setBenchmarkReturnView('studio'); setView('benchmark') }}><BrainCircuit size={17} /> 模型智测</button>
               </div>
             </article>
           ) : (

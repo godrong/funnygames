@@ -81,7 +81,7 @@ export function simulateBenchmark(story: Story, model: ModelOption): BenchmarkRe
 
 export async function runBenchmark(story: Story, model: ModelOption, customModelId?: string): Promise<BenchmarkResult> {
   const endpoint = import.meta.env.VITE_BENCHMARK_API_URL
-  if (!endpoint) return simulateBenchmark(story, model)
+  if (!endpoint) throw new Error('Benchmark gateway is not configured')
 
   const response = await fetch(endpoint, {
     method: 'POST',

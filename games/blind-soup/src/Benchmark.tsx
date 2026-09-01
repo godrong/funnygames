@@ -19,7 +19,7 @@ import {
   Trophy,
 } from 'lucide-react'
 import { useMemo, useState } from 'react'
-import { modelFamilies, modelOptions, runBenchmark, simulateBenchmark, type BenchmarkResult, type ModelFamilyId } from './model-benchmark'
+import { modelFamilies, modelOptions, runBenchmark, type BenchmarkResult, type ModelFamilyId } from './model-benchmark'
 import type { Story } from './story-engine'
 
 type Props = {
@@ -37,7 +37,8 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
   const [running, setRunning] = useState(false)
   const [phase, setPhase] = useState('准备测试')
   const [result, setResult] = useState<BenchmarkResult | null>(null)
-  const [gatewayFailed, setGatewayFailed] = useState(false)
+  const [error, setError] = useState('')
+  const gatewayConfigured = Boolean(import.meta.env.VITE_BENCHMARK_API_URL)
   const models = useMemo(() => modelOptions.filter((item) => item.family === family), [family])
   const selectedModel = modelOptions.find((item) => item.id === modelId) ?? models[0]
 
@@ -48,10 +49,10 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
   }
 
   const start = async () => {
-    if (selectedModel.id === 'custom' && !customModelId.trim()) return
+    if (!gatewayConfigured || (selectedModel.id === 'custom' && !customModelId.trim())) return
     setRunning(true)
     setResult(null)
-    setGatewayFailed(false)
+    setError('')
     const phases = ['读取汤面', '建立假设树', '向主持人提问', '提交最终推理']
     for (const nextPhase of phases) {
       setPhase(nextPhase)
@@ -60,8 +61,7 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
     try {
       setResult(await runBenchmark(story, selectedModel, customModelId.trim()))
     } catch {
-      setGatewayFailed(true)
-      setResult(simulateBenchmark(story, selectedModel))
+      setError('模型网关请求失败。请检查服务地址、鉴权和模型映射后重试。')
     } finally {
       setRunning(false)
       setPhase('测试完成')
@@ -103,7 +103,7 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
             <>
               <div className="benchmark-heading">
                 <div><span className="eyebrow">MODEL ARENA</span><h2>选择挑战模型</h2></div>
-                <span>{import.meta.env.VITE_BENCHMARK_API_URL ? '网关已连接' : '模拟评测'}</span>
+                <span>{gatewayConfigured ? '网关已连接' : '未连接模型'}</span>
               </div>
 
               <div className="family-selector" role="tablist" aria-label="模型系列">
@@ -140,11 +140,19 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
                 </label>
               )}
 
+              {!gatewayConfigured && (
+                <div className="gateway-notice">
+                  <LockKeyhole size={19} />
+                  <div><strong>尚未连接真实模型</strong><span>静态网页不能调用本机 Codex。配置服务端模型网关后才能开始智测，当前不会生成虚假分数。</span></div>
+                </div>
+              )}
+              {error && <div className="gateway-error" role="alert">{error}</div>}
+
               <div className="run-benchmark-bar">
                 <div><Bot size={20} /><span><strong>{selectedModel.name}</strong><small>将独立提问并提交完整汤底</small></span></div>
-                <button onClick={start} disabled={running || (selectedModel.id === 'custom' && !customModelId.trim())}>
+                <button onClick={start} disabled={!gatewayConfigured || running || (selectedModel.id === 'custom' && !customModelId.trim())}>
                   {running ? <LoaderCircle className="spin" size={18} /> : <CircleGauge size={18} />}
-                  {running ? phase : '开始智测'}
+                  {running ? phase : gatewayConfigured ? '开始智测' : '等待模型网关'}
                 </button>
               </div>
             </>
@@ -152,7 +160,7 @@ export default function Benchmark({ story, onBack, onStudio }: Props) {
             <div className="benchmark-result" aria-live="polite">
               <div className="result-title-row">
                 <div><span className="eyebrow">TEST COMPLETE</span><h2>{selectedModel.name}</h2></div>
-                <span className="result-source">{result.source === 'gateway' ? '真实模型' : gatewayFailed ? '网关失败 · 模拟结果' : '模拟结果'}</span>
+                <span className="result-source">真实模型</span>
               </div>
 
               <div className="score-summary">
