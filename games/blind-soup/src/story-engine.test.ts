@@ -8,6 +8,26 @@ const elements: GameElement[] = [
   { id: 'night', label: '午夜', kind: 'time', icon: 'moon' },
 ]
 
+const fullElements: GameElement[] = [
+  { id: 'lab', label: '实验室', kind: 'place', icon: 'flask' },
+  { id: 'beaker', label: '烧杯', kind: 'object', icon: 'beaker' },
+  { id: 'key', label: '钥匙', kind: 'object', icon: 'key' },
+  { id: 'worker', label: '值班员', kind: 'person', icon: 'person' },
+  { id: 'night', label: '午夜', kind: 'time', icon: 'moon' },
+  { id: 'blackout', label: '停电', kind: 'anomaly', icon: 'zap' },
+  { id: 'knife', label: '刀具', kind: 'object', icon: 'knife' },
+  { id: 'doctor', label: '医生', kind: 'person', icon: 'doctor' },
+]
+
+const settings = (variant: number, overrides: Partial<Parameters<typeof buildStory>[1]> = {}) => ({
+  tone: '悬疑' as const,
+  difficulty: 3,
+  supernatural: false,
+  brief: '',
+  variant,
+  ...overrides,
+})
+
 describe('story engine', () => {
   it('uses selected elements in the generated surface', () => {
     const story = buildStory(elements, { tone: '悬疑', difficulty: 3, supernatural: false, brief: '', variant: 0 })
@@ -20,11 +40,14 @@ describe('story engine', () => {
     expect(judgeQuestion('这和鬼有关吗？', story, false).verdict).toBe('否')
   })
 
-  it('gives generated local stories authored yes and no answers', () => {
-    const story = buildStory(elements, { tone: '悬疑', difficulty: 3, supernatural: false, brief: '', variant: 0 })
-    expect(judgeQuestion('死亡时间被人误导了吗？', story, false).verdict).toBe('是')
-    expect(judgeQuestion('第四个人真实存在吗？', story, false).verdict).toBe('否')
-    expect(judgeQuestion('一把钥匙不是真正的凶器吗？', story, false).verdict).toBe('是')
+  it('gives every generated archetype authored useful quick questions', () => {
+    for (let variant = 0; variant < 8; variant += 1) {
+      const story = buildStory(fullElements, settings(variant))
+      expect(story.suggestedQuestions).toHaveLength(3)
+      for (const question of story.suggestedQuestions ?? []) {
+        expect(judgeQuestion(question, story, false).verdict, `variant ${variant}: ${question}`).not.toBe('无关')
+      }
+    }
   })
 
   it('maps a question to the key fact it uncovers', () => {
@@ -35,7 +58,7 @@ describe('story engine', () => {
   it('automatically solves a case after enough unique facts are covered', () => {
     const story = buildStory(elements, { tone: '悬疑', difficulty: 3, supernatural: false, brief: '', variant: 0 })
     const knownFacts = [0, 1]
-    const result = judgeQuestion('第四个人其实是镜子里的视觉误导吗？', story, false, knownFacts)
+    const result = judgeQuestion(story.suggestedQuestions![2], story, false, knownFacts)
 
     expect(requiredFactCount(story)).toBe(3)
     expect(result.solved).toBe(true)
@@ -44,6 +67,105 @@ describe('story engine', () => {
 
   it('uses an eight-question session limit', () => {
     expect(MAX_QUESTIONS).toBe(8)
+  })
+
+  it('generates eight structurally different deterministic stories', () => {
+    const stories = Array.from({ length: 8 }, (_, variant) => buildStory(fullElements, settings(variant)))
+
+    expect(new Set(stories.map((story) => story.title)).size).toBe(8)
+    expect(new Set(stories.map((story) => story.surface)).size).toBe(8)
+    expect(new Set(stories.map((story) => story.truth)).size).toBe(8)
+    expect(buildStory(fullElements, settings(5))).toEqual(buildStory(fullElements, settings(5)))
+  })
+
+  it.each([
+    ['no elements', []],
+    ['exactly three elements', fullElements.slice(0, 3)],
+    ['exactly eight elements', fullElements],
+    ['no object', fullElements.filter((item) => item.kind !== 'object')],
+    ['no person', fullElements.filter((item) => item.kind !== 'person')],
+    ['no place', fullElements.filter((item) => item.kind !== 'place')],
+    ['no time', fullElements.filter((item) => item.kind !== 'time')],
+    ['no anomaly', fullElements.filter((item) => item.kind !== 'anomaly')],
+  ] as const)('handles boundary input: %s', (_label, input) => {
+    expect(() => buildStory([...input], settings(3))).not.toThrow()
+    const story = buildStory([...input], settings(3))
+    expect(story.surface.length).toBeGreaterThan(20)
+    expect(story.truth.length).toBeGreaterThan(20)
+    expect(story.keyFacts).toHaveLength(4)
+  })
+
+  it('preserves every supplied element in the surface or truth', () => {
+    const story = buildStory(fullElements, settings(2))
+    const completeStory = `${story.surface}${story.truth}`
+
+    for (const element of fullElements) expect(completeStory).toContain(element.label)
+  })
+
+  it('handles regex characters in element labels and judge rules', () => {
+    const specialElements: GameElement[] = [
+      { id: 'object', label: '杯子(1)+?', kind: 'object', icon: 'beaker' },
+      { id: 'extra', label: '钥匙[备用]*', kind: 'object', icon: 'key' },
+      { id: 'person', label: '值班员$A', kind: 'person', icon: 'person' },
+      { id: 'place', label: '实验室{东}', kind: 'place', icon: 'lab' },
+      { id: 'anomaly', label: '停电|闪烁', kind: 'anomaly', icon: 'zap' },
+    ]
+    const story = buildStory(specialElements, settings(0))
+
+    expect(() => story.judgeRules?.forEach((judgeRule) => judgeRule.pattern.test('任意问题'))).not.toThrow()
+    expect(judgeQuestion('杯子(1)+?被加热过吗？', story, false).verdict).toBe('是')
+    expect(judgeQuestion('钥匙[备用]*触发了延时装置吗？', story, false).verdict).toBe('是')
+  })
+
+  it.each(['', '   ', '甲'.repeat(80)])('handles brief boundary %j', (brief) => {
+    const story = buildStory(elements, settings(1, { brief }))
+    if (brief.trim()) expect(story.surface).toContain(brief.trim())
+    else expect(story.surface).not.toContain('额外条件')
+  })
+
+  it('uses tone and difficulty as story output controls', () => {
+    const plain = buildStory(elements, settings(2, { tone: '悬疑', difficulty: 3 }))
+    const absurd = buildStory(elements, settings(2, { tone: '荒诞', difficulty: 5 }))
+
+    expect(absurd.surface).not.toBe(plain.surface)
+    expect(absurd.truth).not.toBe(plain.truth)
+  })
+
+  it('keeps supernatural logic consistent in both modes', () => {
+    const realistic = buildStory(elements, settings(7, { supernatural: false }))
+    const supernatural = buildStory(elements, settings(7, { supernatural: true }))
+
+    expect(judgeQuestion('这和鬼或超自然有关吗？', realistic, false).verdict).toBe('否')
+    expect(judgeQuestion('这和鬼或超自然有关吗？', supernatural, true).verdict).toBe('是')
+    expect(supernatural.truth).toContain('真实的时间循环')
+  })
+
+  it('does not invent ghosts in realistic archetypes when supernatural is merely allowed', () => {
+    for (let variant = 0; variant < 7; variant += 1) {
+      const story = buildStory(elements, settings(variant, { supernatural: true }))
+      expect(judgeQuestion('这和鬼或超自然有关吗？', story, true).verdict).toBe('否')
+    }
+  })
+
+  it('does not award new coverage for repeated, negative, or unrelated questions', () => {
+    const story = buildStory(fullElements, settings(0))
+    const first = judgeQuestion('死亡时间比大家以为的更早吗？', story, false)
+    const repeated = judgeQuestion('死亡时间比大家以为的更早吗？', story, false, first.matchedFacts)
+    const negative = judgeQuestion('受害者是响声时才死的吗？', story, false, first.matchedFacts)
+    const unrelated = judgeQuestion('这和早餐吃什么有关吗？', story, false, first.matchedFacts)
+
+    expect(first.matchedFacts).toEqual([0])
+    expect(new Set([...first.matchedFacts, ...repeated.matchedFacts]).size).toBe(1)
+    expect(negative.matchedFacts).toEqual([])
+    expect(unrelated.matchedFacts).toEqual([])
+    expect(repeated.solved).toBe(false)
+  })
+
+  it('requires only available facts for empty and small stories', () => {
+    const base = buildStory(elements, settings(0))
+    expect(requiredFactCount({ ...base, keyFacts: [] })).toBe(0)
+    expect(requiredFactCount({ ...base, keyFacts: ['one'] })).toBe(1)
+    expect(requiredFactCount({ ...base, keyFacts: ['one', 'two'] })).toBe(2)
   })
 
   it('does not overcount facts that only share a generic object phrase', () => {

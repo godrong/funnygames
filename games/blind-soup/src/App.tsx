@@ -162,6 +162,7 @@ function App() {
   const [benchmarkReturnView, setBenchmarkReturnView] = useState<'studio' | 'game'>('game')
   const boardRef = useRef<HTMLDivElement>(null)
   const messagesRef = useRef<HTMLDivElement>(null)
+  const generatingRef = useRef(false)
 
   const turnCount = chats.filter((item) => item.from === 'player').length
   const turnsLeft = Math.max(0, MAX_QUESTIONS - turnCount)
@@ -169,10 +170,15 @@ function App() {
   const caseNumber = currentCuratedId
     ? curatedStories.findIndex((item) => item.id === currentCuratedId) + 1
     : variant + 1
+  const selectionKey = selected.map((item) => item.id).join('|')
 
   useEffect(() => {
     if (messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight
   }, [chats])
+
+  useEffect(() => {
+    setDraftStory(null)
+  }, [selectionKey, tone, difficulty, supernatural, brief])
 
   const filteredElements = useMemo(() => {
     const normalized = query.trim().toLowerCase()
@@ -226,11 +232,13 @@ function App() {
   }
 
   const generate = async () => {
+    if (generatingRef.current) return
     if (selected.length < 3) {
       setToast('至少放入 3 个元素')
       window.setTimeout(() => setToast(''), 1800)
       return
     }
+    generatingRef.current = true
     setGenerating(true)
     const nextVariant = draftStory ? variant + 1 : variant
     await new Promise((resolve) => window.setTimeout(resolve, 650))
@@ -243,6 +251,7 @@ function App() {
       setToast('模型未响应，已使用本地引擎')
       window.setTimeout(() => setToast(''), 2200)
     } finally {
+      generatingRef.current = false
       setGenerating(false)
     }
   }
@@ -475,10 +484,10 @@ function App() {
                 <button
                   className={`element-item kind-${kindMeta[item.kind].color} ${isUsed ? 'used' : ''}`}
                   key={item.id}
-                  draggable={!isUsed}
+                  draggable={!isUsed && selected.length < 8}
                   onDragStart={(event) => event.dataTransfer.setData('text/element-id', item.id)}
                   onClick={() => addElement(item)}
-                  disabled={isUsed}
+                  disabled={isUsed || selected.length >= 8}
                 >
                   <span className="element-icon"><ElementIcon name={item.icon} /></span>
                   <span><strong>{item.label}</strong><small>{kindMeta[item.kind].label}</small></span>
@@ -555,7 +564,7 @@ function App() {
 
           <div className="control-group">
             <label htmlFor="brief">一句话灵感 <span>可选</span></label>
-            <textarea id="brief" value={brief} onChange={(event) => setBrief(event.target.value)} placeholder="例如：所有人都没有说谎……" maxLength={80} />
+            <textarea id="brief" value={brief} onChange={(event) => setBrief(event.target.value.slice(0, 80))} placeholder="例如：所有人都没有说谎……" maxLength={80} />
             <small className="counter">{brief.length}/80</small>
           </div>
 
