@@ -78,6 +78,14 @@ describe('story engine', () => {
     expect(buildStory(fullElements, settings(5))).toEqual(buildStory(fullElements, settings(5)))
   })
 
+  it('does not bake a fixed fourth-person trope into any generated archetype', () => {
+    for (let variant = 0; variant < 8; variant += 1) {
+      const story = buildStory(fullElements, settings(variant))
+      expect(JSON.stringify(story)).not.toContain('第四个人')
+      expect(JSON.stringify(story)).not.toContain('第四名')
+    }
+  })
+
   it.each([
     ['no elements', []],
     ['exactly three elements', fullElements.slice(0, 3)],
