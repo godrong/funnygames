@@ -275,7 +275,9 @@ export function buildStory(elements: GameElement[], settings: StorySettings): St
     ? `${place}的登记显示原本有${groupConstraint.count}个人，清点时却少了一个。`
     : brief ? `另一个已知条件是：“${brief}”。` : ''
   const briefTruthLine = groupConstraint
-    ? ` 登记人数减少的那一个正是${person}；人数差额来自身份被冒用或本人藏在建筑内部，并没有凭空多出未知人物。`
+    ? index === 1
+      ? ` 登记中减少的是${person}本人；录像里的伪装者冒用了他的身份，所以清点人数与监控画面一度互相矛盾。`
+      : ` 登记中减少的是${person}本人；他一直藏在建筑内部，清点时没有出现，并非有陌生人混入。`
     : ''
   const toneLead = settings.tone === '荒诞' ? '所有人的说法都很离奇，但没有人说谎。' : settings.tone === '惊悚' ? '现场没有留下第二次解释的机会。' : ''
   const unusedLabels = elements
