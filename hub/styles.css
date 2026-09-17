@@ -48,6 +48,7 @@ main { min-height: calc(100vh - 116px); }
 .catalog-heading p { max-width: 360px; margin: 0 0 5px; color: #6e746e; font-size: 12px; line-height: 1.8; }
 
 .featured-game { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(290px, .72fr); margin-top: 28px; border: 1px solid #bdb9ae; background: var(--paper); }
+.featured-game + .featured-game { margin-top: 16px; }
 .game-cover { min-height: 430px; overflow: hidden; background: #d8d4ca; border-right: 1px solid #c8c3b8; }
 .game-cover img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .25s ease; }
 .game-cover:hover img { transform: scale(1.015); }

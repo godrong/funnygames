@@ -14,4 +14,4 @@ const hubCss = await readFile(resolve(root, 'hub/styles.css'), 'utf8')
 await writeFile(resolve(output, 'index.html'), hubHtml)
 await writeFile(resolve(output, 'styles.css'), hubCss)
 
-console.log('Built FunnyGames hub with Blind Soup at /blind-soup/')
+console.log('Built FunnyGames hub with Blind Soup and LinkedIn Speak catalog entry')
